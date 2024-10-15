@@ -33,38 +33,15 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 # Layout
 app.layout = dbc.Container([
     html.H1("Market Simulation Dashboard"),
+    # html.Br(),
 
-    # dbc.Row([
-    # dbc.Col([ dbc.Col(html.Div("Distribution of the better's:"))] + [dbc.Col(html.Div(nice_names[i])) for i in range(len(nice_names))],width=3),
-
-    # dbc.Col([dbc.Col(html.Div("Mean")),
-    #          dbc.Col(dcc.Slider(500, 1500, 100,
-    #            value=1000, id="budget_mean")),
-    #          dbc.Col(dcc.Slider(0, 1, 0.1,
-    #            value=0.5, id="risk_av_mean")),
-    #          dbc.Col(dcc.Slider(0, 1, 0.1,
-    #            value=0.5, id="stubbornness_mean")),
-    #          dbc.Col(dcc.Slider(0, 1, 0.1,
-    #            value=0.5, id="expertise_mean"))  ],width=6),
-               
-    # dbc.Col([
-    #     dbc.Col(html.Div("Variance")),
-    #     dbc.Col(dcc.Input(id="budget_var", type="number", value=100)),
-    #     dbc.Col(dcc.Input(id="risk_av_var", type="number", value=0.01)),
-    #     dbc.Col(dcc.Input(id="stubbornness_var", type="number", value=0.01)),
-    #     dbc.Col(dcc.Input(id="expertise_var", type="number", value=0.01))
-    # ],width=3)
-    
-    # ]),
-
-    
     dbc.Row([
-        dbc.Col(html.Div("Better attributes:"),width=3),
-        dbc.Col(html.Div("Mean"),width=5),
+        dbc.Col(html.H3("Better attributes"),width=3),
+        dbc.Col(html.H3("Mean"),width=5),
         dbc.Col(width=1),
-        dbc.Col(html.Div("Variance"),width=3),
+        dbc.Col(html.H3("Variance"),width=3),
     ]),
-    
+    html.Br(),
     html.Br(),
     # Input fields for budget, risk_av, stubbornness, expertise
     dbc.Row([
@@ -104,20 +81,20 @@ app.layout = dbc.Container([
     html.Br(),
     html.Br(),
     # Dropdowns for variable correlation selection and correlation input
-    dbc.Row([dbc.Col(html.Div('Correlate ')),
+    dbc.Row([dbc.Col(html.Div('Correlate '),width=1),
         dbc.Col(dcc.Dropdown(
             id="var_1",
             options=[{"label": nice_names[i], "value": variables_of_interest[i]} for i in range(len(variables_of_interest))],
             value="budget"
-        )),
-        dbc.Col(html.Div(' and ')),
+        ),width=3),
+        dbc.Col(html.Div(' and '),width=1),
         dbc.Col(dcc.Dropdown(
             id="var_2",
             options=[{"label": nice_names[i], "value": variables_of_interest[i]} for i in range(len(variables_of_interest))],
             value="expertise"
-        )),
-        dbc.Col(html.Div(' with correlation coefficient  ')),
-        dbc.Col(dcc.Input(id="correlation", type="number", value=0)),
+        ),width=3),
+        dbc.Col(html.Div(' with correlation coefficient  '),width=3),
+        dbc.Col(dcc.Input(id="correlation", type="number", value=0),width=1),
     ]),
 
     
@@ -132,8 +109,12 @@ app.layout = dbc.Container([
 
     dbc.Row([
         dcc.Graph(id="market_price_plot")]),
+    dbc.Row([html.Br()]),
     dbc.Row([
-        dbc.Col(dcc.Graph(id="supply_demand_plot")),
+        dcc.Graph(id="supply_demand_plot")]),
+    dbc.Row([html.Br()]),
+    dbc.Row([
+        dbc.Col(dcc.Graph(id="market_error_plot")),
     ])
 ])
 
@@ -143,7 +124,8 @@ app.layout = dbc.Container([
      Output("hist_plot_2", "figure"),
      Output("joint_plot", "figure"),
      Output("market_price_plot", "figure"),
-     Output("supply_demand_plot", "figure")],
+     Output("supply_demand_plot", "figure"),
+     Output("market_error_plot", "figure")],
     [
     Input("var_1", "value"),
     Input("var_2", "value"),
@@ -193,8 +175,10 @@ def update_plots(var_1, var_2, correlation, budget_mean, budget_var,
 
     fig_market_price = plot_market_price(market_record, scale_fact=10, step=True)
     fig_supply_demand = plot_supply_demand(market_record)
+    fig_market_error = plot_market_error(market_record, scale_fact=10, step=True)
 
-    return fig_hist_1, fig_hist_2, fig_joint, fig_market_price, fig_supply_demand
+
+    return fig_hist_1, fig_hist_2, fig_joint, fig_market_price, fig_supply_demand, fig_market_error
 
 
 

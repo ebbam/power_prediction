@@ -2,7 +2,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 
-def plot_market_price(rec, scale_fact=10, step=False, colors=None):
+def plot_market_price(rec, scale_fact=10, step=True, colors=None):
     # Default colors if none are provided
     if colors is None:
         colors = ["black", "darkorange", "dodgerblue", "red", "green", "purple"]
@@ -70,8 +70,63 @@ def plot_market_price(rec, scale_fact=10, step=False, colors=None):
         title="Market Price",
         xaxis_title="Time",
         yaxis=dict(title="Result", range=[0, 1.02]),
-        legend=dict(traceorder='normal'),#x=1, y=1, orientation="v"),
+        legend=dict(traceorder='normal', x=0, y=-0.2, orientation="h"),
         height=600,
+        margin=dict(t=40, b=20),
+        template = 'plotly_white'
+    )
+
+    return fig
+
+
+
+def plot_market_error(rec, scale_fact=10, step=True):
+
+    # Process market pressure
+    N = len(rec["price_history"])
+
+    # Create the subplots
+    fig = go.Figure()
+
+    # Market price, upward and downward pressure
+    if step:
+        fig.add_trace(go.Scatter(x=np.arange(N), y=np.zeros(N), mode='lines', opacity=0,
+                                 line=dict(color="rgba(0,0,0,0.2)",shape='hv', width = 0),showlegend = False))
+        
+        fig.add_trace(go.Scatter(x=list(range(N)), y=np.cumsum(np.array(rec['price_history']) - np.array(rec['gen_el'])), mode='lines',
+                        line=dict(color="rgba(0,0,0,0.2)",shape='hv', width = 0), fill='tonexty',
+                        fillcolor="rgba(0,0,0,0.2)", showlegend = False))
+    
+        fig.add_trace(go.Scatter(x=np.arange(N), y=np.zeros(N), mode='lines', opacity=0,
+                                 line=dict(color="rgba(0,0,0,0.2)",shape='hv', width = 0),showlegend = False))
+        
+        fig.add_trace(go.Scatter(x=list(range(N)), y=np.array(rec['price_history']) - np.array(rec['gen_el']), mode='lines',
+                        line=dict(color="rgba(1,0,0,1)",shape='hv', width = 0), fill='tonexty',
+                        fillcolor="rgba(1,0,0,1)", opacity=0.4, showlegend = False))
+        
+
+        
+    else:
+        fig.add_trace(go.Scatter(x=np.arange(N), y=np.zeros(N), mode='lines', opacity=0,
+                                 line=dict(color="rgba(0,0,0,0.2)", width = 0),showlegend = False))
+        
+        fig.add_trace(go.Scatter(x=list(range(N)), y=np.cumsum(np.array(rec['price_history']) - np.array(rec['gen_el'])), mode='lines',
+                        line=dict(color="rgba(0,0,0,0.2)", width = 0), fill='tonexty',
+                        fillcolor="rgba(0,0,0,0.2)", showlegend = False))
+    
+        fig.add_trace(go.Scatter(x=np.arange(N), y=np.zeros(N), mode='lines', opacity=0,
+                                 line=dict(color="rgba(0,0,0,0.2)", width = 0),showlegend = False))
+        
+        fig.add_trace(go.Scatter(x=list(range(N)), y=np.array(rec['price_history']) - np.array(rec['gen_el']), mode='lines',
+                        line=dict(color="rgba(1,0,0,1)", width = 0), fill='tonexty',
+                        fillcolor="rgba(1,0,0,1)", opacity=0.4, showlegend = False))
+
+    # Update layout
+    fig.update_layout(
+        title="Difference between Market Price and Election Outcome",
+        xaxis_title="Time",
+        yaxis=dict(title="Result"),
+        height=300,
         margin=dict(t=40, b=20),
         template = 'plotly_white'
     )
@@ -101,10 +156,10 @@ def plot_supply_demand(rec, colors=None):
 
     # Update layout
     fig.update_layout(
-        title="Market Price",
+        title="Contract Volume & Net Supply",
         xaxis_title="Time",
         yaxis=dict(title="Result", range=[0, 1]),
-        # legend=dict(x=0.5, y=-0.2, orientation="h"),
+        legend=dict(x=0, y=-0.2, orientation="h"),
         height=600,
         margin=dict(t=40, b=20),
         template = 'plotly_white'
