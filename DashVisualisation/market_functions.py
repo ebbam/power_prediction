@@ -10,7 +10,7 @@ class better:
     # Wordy but this allows us to more easily change the default values of betters we initialise
     def __init__(self, budget = np.random.uniform(100,1000), market_valuation = np.random.normal(0.9,0.001),
                  n_contracts = 0, risk_av = np.random.uniform(0,1), stubbornness = 0,#np.random.uniform(0,1), 
-                 expertise = np.random.normal(0.1, 0.01)):
+                 expertise = np.random.normal(0.9, 0.01)):
         self.budget = budget # Their personal contract valuation - this will ultimately depend on their beliefs and evolve in relation to market activity
         self.market_valuation = market_valuation
                 # The number of contracts currently held
@@ -22,7 +22,7 @@ class better:
         self.stubbornness = stubbornness
                 # This is the "clarity" with which a better views the true probability
                 # Perhaps a different distribution...although this is something we can play with
-        self.expertise = expertise
+        self.expertise = 1-expertise
                 
     def exp_utility(self, mkt_price, new_c):
         ''' 

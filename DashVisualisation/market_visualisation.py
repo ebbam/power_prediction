@@ -71,7 +71,7 @@ app.layout = dbc.Container([
     html.Br(),
     dbc.Row([
         dbc.Col(html.Div(nice_names[3],style={'color':better_attribute_colours[variables_of_interest[3]]}),width=3),
-        dbc.Col(dcc.Slider(0, 1, 0.1,
+        dbc.Col(dcc.Slider(0, 1, 0.9,
                value=0.5, id="expertise_mean"),width=5),
         dbc.Col(width=1),
         dbc.Col(dcc.Input(id="expertise_var", type="number", value=0.01, min = 0, max = 0.4),width=3),
