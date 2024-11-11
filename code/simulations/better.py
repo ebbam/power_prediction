@@ -8,7 +8,7 @@ class better:
     # Wordy but this allows us to more easily change the default values of betters we initialise
     def __init__(self, budget = np.random.uniform(100,1000), market_valuation = np.random.normal(0.5,0.001),
                  n_contracts = 0, risk_av = np.random.uniform(0,1), stubbornness = 0,#np.random.uniform(0,1), 
-                 expertise = np.random.normal(0.9, 0.01), 
+                 expertise = np.random.normal(0.9, 0.01),
                  bias = 0,
                  whale=False):
         self.budget = budget # Their personal contract valuation - this will ultimately depend on their beliefs and evolve in relation to market activity
@@ -62,7 +62,6 @@ class better:
         Individual better updates their belief as a function of their stubbornnes, expertise-adjusted signal of the true election outcome probability, and their current market valuation. 
         Updates internal belief 
         '''
-
         if not self.whale:
             self.market_valuation += (1-self.stubbornness)*(np.random.normal(true_value, self.expertise) - self.bias - self.market_valuation)
             # ensure value is within range [0,1]
