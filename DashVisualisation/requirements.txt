@@ -2,4 +2,4 @@ dash-design-kit==0.0.1
 dash==2.18.2
 gunicorn==23.0.0
 pandas==2.2.3
-dash_bootstrap_components==2.18.2
+dash_bootstrap_components==1.6.0
