@@ -3,7 +3,7 @@ Complexity Global School - Group Project
 
 *Authors: Ebba Mark, Bridget Smart, Anne Bastian, Josefina Waugh*
 
-This repository contains two project folders (including a description of core scripts and source files):
+This repository contains two project folders (Note: files described below are not an exhaustive list of the repository content):
 
 ## code
 main_pred_market.ipynb: Jupyter Notebook that demonstrates and describes the functionality of the prediction market model
