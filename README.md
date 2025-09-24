@@ -1,5 +1,4 @@
 # Power and Prediction Markets
-Complexity Global School - Group Project
 
 *Authors: Ebba Mark, Bridget Smart, Anne Bastian, Josefina Waugh*
 
@@ -8,7 +7,9 @@ This repository contains two project folders (Note: files described below are no
 
 ## code
 main_pred_market.ipynb: Jupyter Notebook that demonstrates and describes the functionality of the prediction market model
+
 simulations/: subfolder that includes code and results for the simulation experiments varying agent attributes and introducing a whale agent on the betting market. 
+
 simulations/bettor.py: bettor class and market functions required to run the model
 
 ## DashVisualisation
