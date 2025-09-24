@@ -13909,3 +13909,6 @@
 .venv/share/jupyter/kernels/python3/logo-svg.svg
 .venv/share/man/man1/ipython.1
 .venv/share/man/man1/ttx.1
+*.png
+*.pdf
+*.pkl

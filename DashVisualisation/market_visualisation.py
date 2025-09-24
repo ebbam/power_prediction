@@ -16,15 +16,15 @@ import plotly.express as px
 variables_of_interest = ['budget', 'risk_av', 'stubbornness', 'expertise']
 color_list = px.colors.qualitative.Plotly
 
-nice_names = ['Initial Budget', 'Risk adversity', 'Stubbornness', 'Expertise']
+nice_names = ['Initial Budget', 'Risk aversion', 'Stubbornness', 'Expertise']
 
-parameters = {'n_betters': 100, # The number of betting agents
+parameters = {'n_bettors': 100, # The number of betting agents
               #'el_outcome': 1, # Q: Ultimate election outcome - assuming we know this to begin with and it does not change over time...for now this is implemented as a random walk of the probability...but should this be 0 or 1 instead? '''
               't_election': 100, # Time until election takes place (ie. time horizon of betting)
               'initial_price': 0.5, # Initial market price (is this equivalent to probability of winning)
               'outcome_uncertainty': 0.1} # This is a measure of how uncertain the true outcome is - ie. the volatility of the random walk election probability
 
-better_attribute_colours = {variables_of_interest[i]: color_list[i] for i in range(len(variables_of_interest))}
+bettor_attribute_colours = {variables_of_interest[i]: color_list[i] for i in range(len(variables_of_interest))}
 
 color_list = color_list[len(variables_of_interest):]
 
@@ -36,7 +36,7 @@ app.layout = dbc.Container([
     # html.Br(),
 
     dbc.Row([
-        dbc.Col(html.H3("Better attributes"),width=3),
+        dbc.Col(html.H3("Bettor attributes"),width=3),
         dbc.Col(html.H3("Mean"),width=5),
         dbc.Col(width=1),
         dbc.Col(html.H3("Variance"),width=3),
@@ -45,7 +45,7 @@ app.layout = dbc.Container([
     html.Br(),
     # Input fields for budget, risk_av, stubbornness, expertise
     dbc.Row([
-        dbc.Col(html.Div(nice_names[0], style={'color':better_attribute_colours[variables_of_interest[0]]}),width=3),
+        dbc.Col(html.Div(nice_names[0], style={'color':bettor_attribute_colours[variables_of_interest[0]]}),width=3),
         dbc.Col(dcc.Slider(500, 1500, 100,
                 marks = {i : str(i) for i in range(500,1501,200)},
                value=1000, id="budget_mean"),width=5),
@@ -54,7 +54,7 @@ app.layout = dbc.Container([
     ]),
     html.Br(),
     dbc.Row([
-        dbc.Col(html.Div(nice_names[1],style={'color':better_attribute_colours[variables_of_interest[1]]}),width=3),
+        dbc.Col(html.Div(nice_names[1],style={'color':bettor_attribute_colours[variables_of_interest[1]]}),width=3),
         dbc.Col(dcc.Slider(0, 1, 0.1,
                value=0.5, id="risk_av_mean"),width=5),
                dbc.Col(width=1),
@@ -62,7 +62,7 @@ app.layout = dbc.Container([
     ]),
     html.Br(),
     dbc.Row([
-        dbc.Col(html.Div(nice_names[2],style={'color':better_attribute_colours[variables_of_interest[2]]}),width=3),
+        dbc.Col(html.Div(nice_names[2],style={'color':bettor_attribute_colours[variables_of_interest[2]]}),width=3),
         dbc.Col(dcc.Slider(0, 1, 0.1,
                value=0.5, id="stubbornness_mean"),width=5),
         dbc.Col(width=1),
@@ -70,7 +70,7 @@ app.layout = dbc.Container([
     ]),
     html.Br(),
     dbc.Row([
-        dbc.Col(html.Div(nice_names[3],style={'color':better_attribute_colours[variables_of_interest[3]]}),width=3),
+        dbc.Col(html.Div(nice_names[3],style={'color':bettor_attribute_colours[variables_of_interest[3]]}),width=3),
         dbc.Col(dcc.Slider(0, 1, 0.9,
                value=0.5, id="expertise_mean"),width=5),
         dbc.Col(width=1),
@@ -150,25 +150,25 @@ def update_plots(var_1, var_2, correlation, budget_mean, budget_var,
     var_1_ind = variables_of_interest.index(var_1)
     var_2_ind = variables_of_interest.index(var_2)
 
-    sampled_parameters = sample_parameters(var_1_ind, var_2_ind, means, sds, correlation, parameters['n_betters'])
+    sampled_parameters = sample_parameters(var_1_ind, var_2_ind, means, sds, correlation, parameters['n_bettors'])
 
-    parameters.update({'betters': [better(budget = sampled_parameters[i,0], 
+    parameters.update({'bettors': [bettor(budget = sampled_parameters[i,0], 
                                         risk_av = np.clip(sampled_parameters[i,1],0,1), 
                                         stubbornness = np.clip(sampled_parameters[i,2],0,1), 
-                                        expertise = np.clip(sampled_parameters[i,3],0,1)) for i in range(parameters['n_betters'])]})
+                                        expertise = np.clip(sampled_parameters[i,3],0,1)) for i in range(parameters['n_bettors'])]})
 
-    better_data = {'budget': [k.budget for k in parameters['betters']],
-            'risk_av': [k.risk_av for k in parameters['betters']],
-            'stubbornness': [k.stubbornness for k in parameters['betters']],
-            'expertise': [k.expertise for k in parameters['betters']]}
+    bettor_data = {'budget': [k.budget for k in parameters['bettors']],
+            'risk_av': [k.risk_av for k in parameters['bettors']],
+            'stubbornness': [k.stubbornness for k in parameters['bettors']],
+            'expertise': [k.expertise for k in parameters['bettors']]}
     
 
     other_var = [x for x in variables_of_interest if x not in [var_1, var_2]]
     # Generate plots using your functions
-    fig_hist_1 = plot_hist(better_data[other_var[0]], better_attribute_colours[other_var[0]])
-    fig_hist_2 = plot_hist(better_data[other_var[1]], better_attribute_colours[other_var[1]])
-    fig_joint = joint_plot(better_data, variables_of_interest, var_1_ind,
-                           var_2_ind, better_attribute_colours[var_1], better_attribute_colours[var_2])
+    fig_hist_1 = plot_hist(bettor_data[other_var[0]], bettor_attribute_colours[other_var[0]])
+    fig_hist_2 = plot_hist(bettor_data[other_var[1]], bettor_attribute_colours[other_var[1]])
+    fig_joint = joint_plot(bettor_data, variables_of_interest, var_1_ind,
+                           var_2_ind, bettor_attribute_colours[var_1], bettor_attribute_colours[var_2])
 
     # Simulate the market
     market_record = run_market(**parameters)

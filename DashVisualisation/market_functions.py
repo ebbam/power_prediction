@@ -1,16 +1,16 @@
-# Import packages
 import numpy as np
 import random as random
 import matplotlib.pyplot as plt
-
-
 ## Defining classes
 
-class better:
-    # Wordy but this allows us to more easily change the default values of betters we initialise
-    def __init__(self, budget = np.random.uniform(100,1000), market_valuation = np.random.normal(0.9,0.001),
-                 n_contracts = 0, risk_av = np.random.uniform(0,1), stubbornness = 0,#np.random.uniform(0,1), 
-                 expertise = np.random.normal(0.9, 0.01)):
+class bettor:
+    # Wordy but this allows us to more easily change the default values of bettors we initialise
+    def __init__(self, budget = np.random.uniform(100,1000), market_valuation = np.random.normal(0.5,0.05),
+                 n_contracts = 0, risk_av = np.random.uniform(0,1), stubbornness = np.clip(np.random.normal(0.3,0.05),0,1),#np.random.uniform(0,1), 
+                 expertise = np.clip(np.random.normal(0.9, 0.04),0.8,1),
+                 market_imitation=0,
+                 bias = 0,
+                 whale=False):
         self.budget = budget # Their personal contract valuation - this will ultimately depend on their beliefs and evolve in relation to market activity
         self.market_valuation = market_valuation
                 # The number of contracts currently held
@@ -20,13 +20,18 @@ class better:
                 # Definition (loose): your willingness to change your opinion in the face of contradicting evidence
                 # Will ideally be used to process "fact" or "news" - again, loosely defined for now
         self.stubbornness = stubbornness
-                # This is the "clarity" with which a better views the true probability
+                # This is the "clarity" with which a bettor views the true probability
                 # Perhaps a different distribution...although this is something we can play with
-        self.expertise = 1-expertise
+        self.expertise = 1- expertise
+                # Market imitation. This should be a value between -1 and 1 which incorporates market movement into an agent's internal valuation
+        self.market_imitation = market_imitation
+                # Bias in the bettor's beliefs - this is the expected difference between the true probability and the bettor's belief
+        self.bias = bias
+        self.whale = whale
                 
     def exp_utility(self, mkt_price, new_c):
         ''' 
-        Expected utility function that takes into account the market price, budget, and market valuation of a better to determine the value of any trade (new_c)
+        Expected utility function that takes into account the market price, budget, and market valuation of a bettor to determine the value of any trade (new_c)
         mkt_price: current market price
         new_c: possible number of contracts to trade: negative (positive) new_c = sell (buy)
         Return: Expected utility of a particular trade volume offered to sell or buy
@@ -54,15 +59,21 @@ class better:
         offered_contracts = c_range[np.argmax([self.exp_utility(m, x) for x in c_range])]
         return offered_contracts
 
-    def update_belief(self, true_value): # stubbornness, risk aversion, information
+    def update_belief(self, true_value, mkt_price, price_history, k=1): # stubbornness, risk aversion, information
         ''' 
-        Individual better updates their belief as a function of their stubbornnes, expertise-adjusted signal of the true election outcome probability, and their current market valuation. 
+        Individual bettor updates their belief as a function of their stubbornnes, expertise-adjusted signal of the true election outcome probability, and their current market valuation. 
         Updates internal belief 
+
+        If an agent has a propensity to imitate the market (market_imitation is -1 or 1), we will also add a factor of the change in market price over the most recent $k$ steps.
         '''
-        self.market_valuation += (1-self.stubbornness)*(np.random.normal(true_value, self.expertise) - self.market_valuation)
-        # ensure value is within range [0,1]
-        self.market_valuation = np.clip(self.market_valuation, 0, 1)
-    
+        if (self.market_imitation != 0) and (len(price_history)>k):
+            self.market_valuation += self.market_imitation * (mkt_price - price_history[-(k)])
+        if not self.whale:
+            self.market_valuation += (1-self.stubbornness)*(np.random.normal(true_value, self.expertise) - self.bias - self.market_valuation)
+            # ensure value is within range [0,1]
+            self.market_valuation = np.clip(self.market_valuation, 0, 1)
+
+
 # Original code for managing order book
 def fulfil_orders(buy_orders, sell_orders):
     sum_buy = np.sum(buy_orders)
@@ -166,32 +177,35 @@ def gen_election(init_price, t_el, sd):
         el.append(np.clip(el[k] + np.random.normal(0, sd), 0, 1))
     return el
 
-def run_market(n_betters, t_election, initial_price, outcome_uncertainty, betters):
+
+def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettors):
 
     # Create true election probability
     gen_el = gen_election(initial_price, t_election, outcome_uncertainty)
     # Initialise betting population
-    #betters = [better() for _ in range(n_betters)]
+    #bettors = [bettor() for _ in range(n_bettors)]
     # Set market price
     mkt_price = initial_price
 
-    # Varioues records to store market price, volume on the market, average better beliefs, and net supply
+    # Varioues records to store market price, volume on the market, average bettor beliefs, and net supply
     price_history = [mkt_price]
-    vol_history = [sum(k.n_contracts for k in betters)]
-    beliefs = [np.mean([k.market_valuation for k in betters])]
-    beliefs_weighted = [np.average([k.market_valuation for k in betters], weights = [k.budget for k in betters])]
+    vol_history = [sum(np.abs(k.n_contracts) for k in bettors)]
+    beliefs = [np.mean([k.market_valuation for k in bettors])]
+    beliefs_weighted = [np.average([k.market_valuation for k in bettors], weights = [k.budget for k in bettors])]
     market_pressure = [0]
     net_supply = [0]
     fulfilled_orders_list = []
+    fulfilled_orders_sums = []
 
     for t in range(t_election):
 
         order_book = [] # Initialise order book for time step t
-        for b in betters:
-            order_book.append(b.trade(mkt_price)) # add better's order volume to the order_book, positive for a buy order and negative for a sell order
+        for b in bettors:
+            order_book.append(b.trade(mkt_price)) # add bettor's order volume to the order_book, positive for a buy order and negative for a sell order
         
         # Resolve order book
-        fulfilled_orders = manage_orders(order_book)  # Fulfill buy-sell orders once every better has placed their order
+        fulfilled_orders = manage_orders(order_book)  # Fulfill buy-sell orders once every bettor has placed their order
+
         
         # Traders update portfolios according to fulfilled orders or not
         """ Q: For now, I have separated the process for buyers and sellers here as we do not allow for negative contract holdings...if a seller for example enters into/sells NEW contracts rather than contracts they already hold
@@ -199,19 +213,20 @@ def run_market(n_betters, t_election, initial_price, outcome_uncertainty, better
             Additionally, the below only works because of the budget constraint implicit in our trade() function -- correct? Perhaps assert or unit test here or in trade function.  """
         
         """ I don't actually think this is something we need to include - the budget constraint means you can sell contracts you don't have, but you need to put up $1 for each one (max payout). """
-        
-        for i in range(n_betters):
-            betters[i].n_contracts += fulfilled_orders[i]
-            betters[i].budget -= fulfilled_orders[i]*mkt_price
+
+        fulfilled_orders_sums.append(np.sum(np.abs(fulfilled_orders)))
+        for i in range(n_bettors):
+            bettors[i].n_contracts += fulfilled_orders[i]
+            bettors[i].budget -= fulfilled_orders[i]*mkt_price
             # Buyers
             # if fulfilled_orders[i] > 0:
-            #     betters[i].n_contracts += fulfilled_orders[i]
-            #     betters[i].budget -= fulfilled_orders[i]*mkt_price
+            #     bettors[i].n_contracts += fulfilled_orders[i]
+            #     bettors[i].budget -= fulfilled_orders[i]*mkt_price
 
             # # # Sellers 
             # elif fulfilled_orders[i] < 0:
-            #     betters[i].n_contracts += max(fulfilled_orders[i], -betters[i].n_contracts) # Ensures no negative contract holdings
-            #     betters[i].budget -= fulfilled_orders[i]*mkt_price
+            #     bettors[i].n_contracts += max(fulfilled_orders[i], -bettors[i].n_contracts) # Ensures no negative contract holdings
+            #     bettors[i].budget -= fulfilled_orders[i]*mkt_price
 
         
         net_supply_demand = np.sum(order_book) # Get net supply (buy contracts - sell contracts)
@@ -224,15 +239,15 @@ def run_market(n_betters, t_election, initial_price, outcome_uncertainty, better
         mkt_price = set_market_price(mkt_price, net_supply_demand, order_volume) #Update market price
 
         # Update beliefs feeding in the true probability of the election outcome at time t
-        for b in betters:
-            b.update_belief(gen_el[t]) 
+        for b in bettors:
+            b.update_belief(gen_el[t], mkt_price, price_history, k=1) 
 
         # Update records
-        beliefs.append(np.mean([k.market_valuation for k in betters]))
-        beliefs_weighted.append(np.average([k.market_valuation for k in betters], weights = [k.budget for k in betters]))
+        beliefs.append(np.mean([k.market_valuation for k in bettors]))
+        beliefs_weighted.append(np.average([k.market_valuation for k in bettors], weights = [k.budget for k in bettors]))
         price_history.append(mkt_price)
         net_supply.append(net_supply_demand)       
-        vol_history.append(sum(np.abs(k.n_contracts) for k in betters)) 
+        vol_history.append(sum([np.abs(k.n_contracts) for k in bettors])) 
 
         # to del
         fulfilled_orders_list.append(np.sum(fulfilled_orders))
@@ -243,6 +258,90 @@ def run_market(n_betters, t_election, initial_price, outcome_uncertainty, better
             'vol_history': vol_history,
             'gen_el': gen_el,
             'net_supply': net_supply[1:],
-            'market_pressure': market_pressure}
+            'market_pressure': market_pressure,
+            'final_budgets': [k.budget for k in bettors]}
+
+    return record
+
+
+
+
+def run_market_fixed_el(n_bettors, t_election, initial_price, outcome_uncertainty, bettors, gen_el):
+
+    # Initialise betting population
+    #bettors = [bettor() for _ in range(n_bettors)]
+    # Set market price
+    mkt_price = initial_price
+
+    # Varioues records to store market price, volume on the market, average bettor beliefs, and net supply
+    price_history = [mkt_price]
+    vol_history = [sum(k.n_contracts for k in bettors)]
+    beliefs = [np.mean([k.market_valuation for k in bettors])]
+    beliefs_weighted = [np.average([k.market_valuation for k in bettors], weights = [k.budget for k in bettors])]
+    market_pressure = [0]
+    net_supply = [0]
+    fulfilled_orders_list = []
+
+    for t in range(t_election):
+
+        order_book = [] # Initialise order book for time step t
+        for b in bettors:
+            order_book.append(b.trade(mkt_price)) # add bettor's order volume to the order_book, positive for a buy order and negative for a sell order
+        
+        # Resolve order book
+        fulfilled_orders = manage_orders(order_book)  # Fulfill buy-sell orders once every bettor has placed their order
+        
+        # Traders update portfolios according to fulfilled orders or not
+        """ Q: For now, I have separated the process for buyers and sellers here as we do not allow for negative contract holdings...if a seller for example enters into/sells NEW contracts rather than contracts they already hold
+            Not sure if this is a problem...we do not currently match each existing contract with a negative contract elsewhere...maybe we need this?
+            Additionally, the below only works because of the budget constraint implicit in our trade() function -- correct? Perhaps assert or unit test here or in trade function.  """
+        
+        """ I don't actually think this is something we need to include - the budget constraint means you can sell contracts you don't have, but you need to put up $1 for each one (max payout). """
+        
+        for i in range(n_bettors):
+            bettors[i].n_contracts += fulfilled_orders[i]
+            bettors[i].budget -= fulfilled_orders[i]*mkt_price
+            # Buyers
+            # if fulfilled_orders[i] > 0:
+            #     bettors[i].n_contracts += fulfilled_orders[i]
+            #     bettors[i].budget -= fulfilled_orders[i]*mkt_price
+
+            # # # Sellers 
+            # elif fulfilled_orders[i] < 0:
+            #     bettors[i].n_contracts += max(fulfilled_orders[i], -bettors[i].n_contracts) # Ensures no negative contract holdings
+            #     bettors[i].budget -= fulfilled_orders[i]*mkt_price
+
+        
+        net_supply_demand = np.sum(order_book) # Get net supply (buy contracts - sell contracts)
+        order_volume = np.sum(np.abs(order_book)) # Get total order volume
+        market_pressure.append(net_supply_demand/order_volume if order_volume != 0 else 0) # Record market pressure
+        assert(abs(net_supply_demand) <= order_volume)
+
+
+        """ Q: The market price updating is not working...See last chunk/plot for demonstration of the problem: price converges to one or zero."""
+        mkt_price = set_market_price(mkt_price, net_supply_demand, order_volume) #Update market price
+
+        # Update beliefs feeding in the true probability of the election outcome at time t
+        for b in bettors:
+            b.update_belief(gen_el[t], mkt_price, price_history, k=1) 
+
+        # Update records
+        beliefs.append(np.mean([k.market_valuation for k in bettors]))
+        beliefs_weighted.append(np.average([k.market_valuation for k in bettors], weights = [k.budget for k in bettors]))
+        price_history.append(mkt_price)
+        net_supply.append(net_supply_demand)       
+        vol_history.append(sum(np.abs(k.n_contracts) for k in bettors)) 
+
+        # to del
+        fulfilled_orders_list.append(np.sum(fulfilled_orders))
+
+    record = {'price_history': price_history,
+            'beliefs': beliefs,
+            'weighted_beliefs': beliefs_weighted,
+            'vol_history': vol_history,
+            'gen_el': gen_el,
+            'net_supply': net_supply[1:],
+            'market_pressure': market_pressure,
+            'final_budgets': [k.budget for k in bettors]}
 
     return record
