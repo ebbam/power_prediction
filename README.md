@@ -6,7 +6,7 @@
 This repository contains two project folders (Note: files described below are not an exhaustive list of the repository content):
 
 ## code
-main_pred_market.ipynb: Jupyter Notebook that demonstrates and describes the functionality of the prediction market model
+extensions/: subfolder which includes main_pred_market.ipynb: Jupyter Notebook that demonstrates and describes the functionality of the prediction market model.
 
 simulations/: subfolder that includes code and results for the simulation experiments varying agent attributes and introducing a whale agent on the betting market. 
 
