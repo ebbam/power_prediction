@@ -1,7 +1,6 @@
 import numpy as np
 import random as random
 import matplotlib.pyplot as plt
-import seaborn as sns
 ## Defining classes
 
 class bettor:
@@ -68,7 +67,7 @@ class bettor:
         If an agent has a propensity to imitate the market (market_imitation is -1 or 1), we will also add a factor of the change in market price over the most recent $k$ steps.
         '''
         if (self.market_imitation != 0) and (len(price_history)>k):
-            self.market_valuation += self.market_imitation * (mkt_price - price_history[-(k)])
+            self.market_valuation += 2*self.market_imitation * (mkt_price - price_history[-(k)])
         if not self.whale:
             self.market_valuation += (1-self.stubbornness)*(np.random.normal(true_value, self.expertise) - self.bias - self.market_valuation)
             # ensure value is within range [0,1]
@@ -179,7 +178,7 @@ def gen_election(init_price, t_el, sd):
     return el
 
 
-def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettors):
+def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettors, k=1):
 
     # Create true election probability
     gen_el = gen_election(initial_price, t_election, outcome_uncertainty)
@@ -241,7 +240,7 @@ def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettor
 
         # Update beliefs feeding in the true probability of the election outcome at time t
         for b in bettors:
-            b.update_belief(gen_el[t], mkt_price, price_history, k=1) 
+            b.update_belief(gen_el[t], mkt_price, price_history, k=k) 
 
         # Update records
         beliefs.append(np.mean([k.market_valuation for k in bettors]))
@@ -253,7 +252,6 @@ def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettor
         # to del
         fulfilled_orders_list.append(np.sum(fulfilled_orders))
 
-    sns.lineplot(fulfilled_orders_sums)
     record = {'price_history': price_history,
             'beliefs': beliefs,
             'weighted_beliefs': beliefs_weighted,
