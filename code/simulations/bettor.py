@@ -164,7 +164,7 @@ def manage_orders(order_book):
     return reconstruct_orders(fulfilled_buy, fulfilled_sell, buy_indices, sell_indices, len(order_book))
 
 
-def set_market_price(m, net_supply_demand, total_orders,market_lambda=10):
+def set_market_price(m, net_supply_demand, total_orders,market_lambda=1/10):
     delta = market_lambda*net_supply_demand/(total_orders) if total_orders > 0 else 0
     m += delta
     return np.clip(m, 0, 1) # constrain market price to be within [0,1]
@@ -178,7 +178,7 @@ def gen_election(init_price, t_el, sd):
     return el
 
 
-def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettors, k=1, market_lambda=10):
+def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettors, k=1, market_lambda=1/10):
 
     # Create true election probability
     gen_el = gen_election(initial_price, t_election, outcome_uncertainty)
@@ -266,7 +266,7 @@ def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettor
 
 
 
-def run_market_fixed_el(n_bettors, t_election, initial_price, outcome_uncertainty, bettors, gen_el, market_lambda=10):
+def run_market_fixed_el(n_bettors, t_election, initial_price, outcome_uncertainty, bettors, gen_el, market_lambda=1/10):
 
     # Initialise betting population
     #bettors = [bettor() for _ in range(n_bettors)]
