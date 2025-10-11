@@ -29,10 +29,15 @@ def evaluate_markets(market_record, maxlag=5):
 
     # decide significance at, say, 5%
     sig_lags = [lag for lag, p in pvals.items() if p < 0.05]
-    best_lag = min(sig_lags) if sig_lags else None
+    # best_lag = min(sig_lags) if sig_lags else None
+
+    # get lag with lowest p-value
+    if pvals:
+        best_lag = min(pvals, key=pvals.get)
+    else:
+        best_lag = None
 
     return mse, best_lag
-
 
 def run_trial(budget_total,w, N, N_whales, av_budget, parameters,mv):
     whale_budget = budget_total * w
@@ -70,7 +75,7 @@ parameters = {'n_bettors': N, # The number of betting agents
             'initial_price': 0.5, # Initial market price (is this equivalent to probability of winning)
             'outcome_uncertainty': 0.1} # This is a measure of how uncertain the true outcome is - ie. the volatility of the random walk election probability
 
-mv = 0.7
+mv = 0.6
 
 for w in tqdm(np.arange(0.1,1,0.1)):
     for _ in range(n_iter_):
