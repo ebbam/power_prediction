@@ -1,0 +1,395 @@
+---
+title: "Comparison of Prediction Market Data vs. Economist Model"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+library(googlesheets4)
+library(googledrive)
+library(tidyverse)
+library(conflicted)
+library(slider)
+library(scales)
+library(assertthat)
+library(patchwork)
+library(ggthemes)
+library(readxl)
+library(tools)
+conflicted::conflict_prefer_all("dplyr", quiet = TRUE)
+#googledrive::drive_auth()
+
+state_legend = theme(legend.position = "right")
+no_state_legend = theme(legend.position = "none")
+
+plot_theme <- theme_minimal(base_size = 12) +
+  theme(
+    text = element_text(family = "Helvetica", color = "#222222"),
+    plot.title = element_text(size = 14, face = "bold", margin = margin(b = 6)),
+    plot.subtitle = element_text(size = 11, margin = margin(b = 10)),
+    axis.title = element_text(size = 11),
+    axis.text = element_text(size = 9, color = "#333333"),
+    panel.grid.major = element_line(color = "gray90", size = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.35, "cm"),
+    legend.spacing.x = unit(0.1, "cm")
+  )
+
+```
+
+# 2020 Election
+
+
+## Market Data
+
+```{r}
+
+mkt_2020 <- read_xlsx("OneDrive - Nexus365/Market_Data/Price History By Market -Bulk-Presidential.xlsx") %>% 
+  mutate(state = gsub(" in the  2020 presidential election?", "", gsub(" in the 2020 presidential election?", "", gsub("Which party will win ", "", MarketName), fixed = TRUE), fixed = TRUE))
+
+# mkt_2020 %>% 
+#   summarise(across(everything(), ~n_distinct(.)))
+
+stopifnot(mkt_2020 %>% 
+  group_by(MarketId, HistoryDateET, ContractName) %>% 
+  distinct %>% 
+  n_groups(.) == nrow(mkt_2020))
+
+mkt_2020 %>% 
+  group_by(HistoryDateET, ContractName) %>% 
+  summarise(CloseSharePrice = mean(CloseSharePrice)) %>%
+  filter(ContractName == "Democratic") %>% 
+  ggplot(aes(x = HistoryDateET, y = CloseSharePrice)) +
+  geom_line(color = "#440154FF") +
+  theme_fivethirtyeight() +
+  labs(y = "Daily Closing Share Price", 
+       x = "Date", 
+       color = "Party", 
+       title = "Daily Closing Share Price on Democratic Contracts for\n2020 US Presidential Election",
+       subtitle = "By definition, the closing share price of Republican contracts is $1-closing share price \nof Democratic Contracts") +
+    plot_theme
+
+
+mkt_2020 %>% 
+  filter(ContractName == "Democratic") %>% 
+  ggplot(aes(x = HistoryDateET, color = state, fill = state)) +
+  geom_ribbon(aes(ymin = LowSharePrice, ymax = HighSharePrice), alpha = 0.1) +
+  geom_line(aes(y = CloseSharePrice)) +
+  theme_fivethirtyeight() +
+  labs(y = "Daily Closing Share Price", 
+       x = "Date", 
+       
+       title = "Daily Closing Share Price on Democratic Contracts for\n2020 US Presidential Election by State",
+       subtitle = "By definition, the closing share price of Republican contracts is $1-closing share price \nof Democratic Contracts") +
+    plot_theme +
+  no_state_legend +
+      scale_color_viridis_d(option = "D", direction = 1)
+
+
+```
+
+
+
+## Economist Data
+```{r}
+
+rec_string <- 'electoral-college-probability-over-time.xlsx'
+
+files <- list.files("OneDrive - Nexus365/Economist_Data") %>% .[grepl(rec_string, .)]
+
+econ_2020 <- tibble()
+for(file in files){
+  state_name <- sub("-electoral-college-probability-over-time\\.xlsx$", "", file) %>% 
+    gsub("-"," ", .) %>% 
+    toTitleCase(.)
+  econ_2020 <- read_xlsx(paste0("OneDrive - Nexus365/Economist_Data/", file)) %>% 
+    mutate(state = state_name) %>% rbind(econ_2020,.)
+}
+
+stopifnot(econ_2020 %>% 
+  group_by(date, state) %>% 
+  n_groups(.) == nrow(econ_2020)/2)
+
+stopifnot(econ_2020 %>% 
+  group_by(date, state) %>% 
+  summarise(win_prob = round(sum(win_prob))) %>% 
+  filter(win_prob != 1) %>% nrow(.) == 0)
+
+econ_2020 %>% 
+  filter(party == "democratic") %>% 
+  #group_by(date) %>% 
+  #summarise(mean_win_prob = mean(win_prob)) %>% 
+  ggplot(aes(x = date, y = win_prob, color = state)) +
+  geom_line() +
+  theme_fivethirtyeight() +
+  labs(x ="Date", y = "Democratic Win Probability", title = "Economist - Democratic Win Probability in \n2020 Presidential Election by State") +
+  plot_theme +
+  no_state_legend +
+      scale_color_viridis_d(option = "D", direction = 1) +
+        scale_fill_viridis_d(option = "D", direction = 1)
+
+
+
+```
+
+
+```{r}
+
+# Produces plots to compare the market price and economist prediction
+
+comp_plots <- function(df, year, vir_pal = "D"){
+  
+  box_plot <- df %>% 
+    mutate(state = reorder(state, diff, FUN = mean)) %>%
+    ggplot() +
+    geom_boxplot(aes(x = reorder(state, diff, FUN = mean), y = diff, color = state, fill = state), alpha = 0.1) +
+    plot_theme +
+    no_state_legend +
+    scale_color_viridis_d(option = vir_pal, direction = 1) +
+    scale_fill_viridis_d(option = vir_pal, direction = 1) +
+    labs(x = "State", y = "Difference", title = paste0(year, " Election: Absolute difference between Market Price and Economist Projection by State"))
+  
+  # MSE by state (bar chart) 
+  mse_by_state <- df %>%
+    group_by(state) %>%
+    summarise(
+      n_obs = sum(!is.na(sq)),
+      mse = mean(sq, na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    arrange(desc(mse))
+  
+  p_bar <- mse_by_state %>%
+    mutate(state = reorder(state, mse, FUN = max)) %>%
+    ggplot(aes(x = state)) +
+    geom_point(aes(y = mse)) +
+    geom_segment(aes(y = mse, yend = 0, color = state)) +
+    #coord_flip() +
+    labs(
+      title = paste0("Mean Squared Error by State (", year,")"),
+      x = NULL,
+      y = "MSE"
+    ) +
+        plot_theme +
+    no_state_legend +
+    scale_color_viridis_d(option = vir_pal, direction = -1)
+  
+  
+  if(year == 2020){
+  # Rolling MSE over time (facet per state) 
+  # rolling window (days) - change window_days as desired
+  window_days <- 7
+  
+  # ensure data is sorted by state/date
+  df_sorted <- df %>%
+    arrange(state, date)
+  
+  # compute rolling mean of squared error per state
+  rolling_df <- df_sorted %>%
+    group_by(state) %>%
+    mutate(
+      mse_roll = slide_dbl(sq, ~ mean(.x, na.rm = TRUE), .before = window_days - 1, .complete = TRUE)
+    ) %>%
+    ungroup()
+  
+top_n <- 12
+top_states <- mse_by_state %>%
+  arrange(desc(mse)) %>%
+  slice_head(n = top_n) %>%
+  pull(state)
+
+# ---- plot A: top 12 states in grid ----
+p_top12 <- rolling_df %>%
+  filter(state %in% top_states) %>%
+  ggplot(aes(x = date, y = mse_roll, color = state)) +
+  geom_line(linewidth = 0.8, alpha = 0.9) +
+  facet_wrap(~ state, scales = "free_y", ncol = 4) +
+  labs(
+    title = paste0(window_days, "-Day Rolling MSE — Top ", top_n, " States"),
+    subtitle = "Each facet shows the rolling mean squared error; scales are free per panel",
+    x = "Date",
+    y = "Rolling MSE"
+  ) +
+  scale_color_viridis_d(option = vir_pal, direction = -1) +
+  plot_theme +
+  theme(legend.position = "none")
+
+# ---- plot B: remaining states together ----
+p_rest <- rolling_df %>%
+  filter(!(state %in% top_states)) %>%
+  ggplot(aes(x = date, y = mse_roll, group = state)) +
+  geom_line(color = "gray60", linewidth = 0.4, alpha = 0.6) +
+  labs(
+    title = "Remaining States (combined)",
+    subtitle = "All other states shown together for context",
+    x = "Date",
+    y = "Rolling MSE"
+  ) +
+  plot_theme
+
+# ---- combine vertically using patchwork ----
+final_plot <- p_top12 / p_rest +
+  plot_layout(heights = c(3, 1))  # top grid larger, bottom smaller
+  }
+  
+  
+  print(p_bar)
+  print(box_plot)
+  
+  if(year == "2020"){
+  print(final_plot)}
+
+}
+```
+
+## Comparing State by State
+
+In 2020, the Economist reports on 17 states whereas the prediction market reports on 56 states/regions (Maine and Nebraska in 3 separate regions each).
+
+```{r}
+
+# setdiff(econ_2020$state, mkt_2020$state)
+# setdiff(mkt_2020$state, econ_2020$state)
+# 
+# setdiff(econ_2020$date, mkt_2020$HistoryDateET)
+# setdiff(mkt_2020$HistoryDateET, econ_2020$date)
+
+mkt_2020_comp <- mkt_2020 %>% 
+  select(ContractName, HistoryDateET, CloseSharePrice, state) %>% 
+  filter(ContractName == "Democratic") %>% 
+  rename(date = HistoryDateET) %>% 
+  select(date, state, CloseSharePrice)
+
+econ_2020_comp <- econ_2020 %>% 
+  filter(party == "democratic") %>% 
+  select(date, state, win_prob)
+
+df_comp_2020 <- mkt_2020_comp %>%
+  left_join(econ_2020_comp, by = c("date", "state")) %>%
+  filter(!is.na(CloseSharePrice) & !is.na(win_prob)) %>%
+  mutate(diff = CloseSharePrice - win_prob,
+         sq = diff^2)
+
+comp_plots(df_comp_2020, year = "2020")
+
+```
+
+
+# 2016 Election
+
+## Market Data
+
+```{r}
+
+mkt_2016 <- read_xlsx("OneDrive - Nexus365/Market_Data/Price History By Market 2016.xlsx") %>% 
+  mutate(state = gsub("the ", "", gsub(" in the 2016 presidential election?", "", gsub("Which party will win ", "", MarketName), fixed = TRUE)))
+
+stopifnot(mkt_2016 %>% group_by(state, HistoryDateET, ContractName) %>% n_groups(.) == nrow(mkt_2016))
+
+
+stopifnot(mkt_2016 %>% 
+  group_by(MarketId, HistoryDateET, ContractName) %>% 
+  distinct %>% 
+  n_groups(.) == nrow(mkt_2016))
+
+mkt_2016 %>% 
+  group_by(HistoryDateET, ContractName) %>% 
+  summarise(CloseSharePrice = mean(CloseSharePrice)) %>%
+  filter(ContractName == "Democratic") %>% 
+  ggplot(aes(x = HistoryDateET, y = CloseSharePrice)) +
+  geom_line(color = "#B12A90FF") +
+  theme_fivethirtyeight() +
+  labs(y = "Daily Closing Share Price", 
+       x = "Date", 
+       color = "Party", 
+       title = "Daily Closing Share Price on Democratic Contracts for\n2016 US Presidential Election",
+       subtitle = "By definition, the closing share price of Republican contracts is $1-closing share price \nof Democratic Contracts") +
+  plot_theme
+
+
+mkt_2016 %>% 
+  filter(ContractName == "Democratic") %>% 
+  ggplot(aes(x = HistoryDateET, color = state, fill = state)) +
+  geom_ribbon(aes(ymin = LowSharePrice, ymax = HighSharePrice), alpha = 0.1) +
+  geom_line(aes(y = CloseSharePrice)) +
+  theme_fivethirtyeight() +
+  labs(y = "Daily Closing Share Price", 
+       x = "Date", 
+       title = "Daily Closing Share Price on Democratic Contracts for\n2016 US Presidential Election",
+       subtitle = "By definition, the closing share price of Republican contracts is $1-closing share price \nof Democratic Contracts") +
+    plot_theme +
+  no_state_legend +
+        scale_color_viridis_d(option = "C", direction = 1)
+
+
+```
+
+## Economist Data
+
+```{r}
+
+econ_2016 <- read_xlsx("OneDrive - Nexus365/Economist_Data/loop_summaries_2016.xlsx")
+
+stopifnot(econ_2016 %>% group_by(state, model_run_date) %>% n_groups(.) == nrow(econ_2016))
+
+econ_2016 %>% 
+  filter(!(state %in% c("--", "ELECTORAL COLLEGE"))) %>% 
+  ggplot(aes(x = model_run_date, y = mean, color = state)) +
+  geom_ribbon(aes(x = model_run_date, ymin = low, ymax = high, fill = state, color = NA), alpha = 0.2) +
+  geom_line() +
+  theme_fivethirtyeight() +
+  labs(x = "Model Run Date", y = "Mean Win Probability", title = "Economist - Democratic Win Probability in \n2016 Presidential Election") +
+    plot_theme +
+  no_state_legend +
+        scale_color_viridis_d(option = "C", direction = 1) +
+          scale_fill_viridis_d(option = "C", direction = 1)
+
+
+
+
+```
+
+## Comparing State by State
+
+In 2016, the Economist reports on 51 states whereas the prediction market reports on 51 states/regions (both include DC).
+
+```{r}
+
+mkt_2016_comp <- mkt_2016 %>% 
+  select(ContractName, HistoryDateET, CloseSharePrice, state) %>% 
+  filter(ContractName == "Democratic") %>% 
+  rename(date = HistoryDateET) %>% 
+  select(date, state, CloseSharePrice)
+
+mkt_2016_comp$state_name <- state.abb[match(mkt_2016_comp$state, state.name)]
+
+mkt_2016_comp <- mkt_2016_comp %>% 
+  mutate(state_name = case_when(state == "Washington state" ~ "WA",
+                                state == "District of Columbia" ~ "DC",
+                                TRUE ~ state_name)) %>% 
+  select(-state) %>% 
+  rename(state = state_name)
+
+
+econ_2016_comp <- econ_2016 %>% 
+  filter(!(state %in% c("--", "ELECTORAL COLLEGE"))) %>% 
+  rename(date = model_run_date,
+         win_prob = mean) %>% 
+  select(date, state, win_prob)
+
+df_comp_2016 <- mkt_2016_comp %>%
+  left_join(econ_2016_comp, by = c("date", "state")) %>%
+  filter(!is.na(CloseSharePrice) & !is.na(win_prob)) %>%
+  mutate(diff = CloseSharePrice - win_prob,
+         sq = diff^2)
+
+comp_plots(df_comp_2016, year = "2016", vir_pal = "C")
+
+```
+
