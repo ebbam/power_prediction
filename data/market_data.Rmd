@@ -13,6 +13,7 @@ library(conflicted)
 library(slider)
 library(scales)
 library(assertthat)
+library(here)
 library(patchwork)
 library(ggthemes)
 library(readxl)
@@ -30,7 +31,7 @@ plot_theme <- theme_minimal(base_size = 12) +
     plot.subtitle = element_text(size = 11, margin = margin(b = 10)),
     axis.title = element_text(size = 11),
     axis.text = element_text(size = 9, color = "#333333"),
-    panel.grid.major = element_line(color = "gray90", size = 0.4),
+    panel.grid.major = element_line(color = "gray90", size = 0.2),
     panel.grid.minor = element_blank(),
     panel.background = element_rect(fill = "white", color = NA),
     plot.background = element_rect(fill = "white", color = NA),
@@ -50,7 +51,7 @@ plot_theme <- theme_minimal(base_size = 12) +
 
 ```{r}
 
-mkt_2020 <- read_xlsx("OneDrive - Nexus365/Market_Data/Price History By Market -Bulk-Presidential.xlsx") %>% 
+mkt_2020 <- read_xlsx("/Users/ebbamark/OneDrive - Nexus365/Market_Data/Price History By Market -Bulk-Presidential.xlsx") %>% 
   mutate(state = gsub(" in the  2020 presidential election?", "", gsub(" in the 2020 presidential election?", "", gsub("Which party will win ", "", MarketName), fixed = TRUE), fixed = TRUE))
 
 # mkt_2020 %>% 
@@ -101,14 +102,14 @@ mkt_2020 %>%
 
 rec_string <- 'electoral-college-probability-over-time.xlsx'
 
-files <- list.files("OneDrive - Nexus365/Economist_Data") %>% .[grepl(rec_string, .)]
+files <- list.files("/Users/ebbamark/OneDrive - Nexus365/Economist_Data") %>% .[grepl(rec_string, .)]
 
 econ_2020 <- tibble()
 for(file in files){
   state_name <- sub("-electoral-college-probability-over-time\\.xlsx$", "", file) %>% 
     gsub("-"," ", .) %>% 
     toTitleCase(.)
-  econ_2020 <- read_xlsx(paste0("OneDrive - Nexus365/Economist_Data/", file)) %>% 
+  econ_2020 <- read_xlsx(paste0("/Users/ebbamark/OneDrive - Nexus365/Economist_Data/", file)) %>% 
     mutate(state = state_name) %>% rbind(econ_2020,.)
 }
 
@@ -145,15 +146,34 @@ econ_2020 %>%
 
 comp_plots <- function(df, year, vir_pal = "D"){
   
+  if(year == "2020"){
+      shading_color <- "slateblue"
+      df$state <- state.abb[match(df$state, state.name)]
+  }else{
+    shading_color <- "mediumvioletred"
+  }
+  
   box_plot <- df %>% 
     mutate(state = reorder(state, diff, FUN = mean)) %>%
     ggplot() +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.00, ymax = 0.1, fill = shading_color, alpha = 0.15) +
+  #annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.05, ymax = 0.1, fill = shading_color, alpha = 0.2) +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.10, ymax = 0.2, fill = shading_color, alpha = 0.1) +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.2, ymax = 0.3, fill = shading_color, alpha = 0.05) +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.3, ymax = 0.4, fill = shading_color, alpha = 0.01) +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.00, ymax = -0.1, fill = shading_color, alpha = 0.15) +
+  #annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.05, ymax = 0.1, fill = shading_color, alpha = 0.2) +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = -0.10, ymax = -0.2, fill = shading_color, alpha = 0.1) +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = -0.2, ymax = -0.3, fill = shading_color, alpha = 0.05) +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = -0.3, ymax = -0.4, fill = shading_color, alpha = 0.01) +
+
     geom_boxplot(aes(x = reorder(state, diff, FUN = mean), y = diff, color = state, fill = state), alpha = 0.1) +
     plot_theme +
     no_state_legend +
-    scale_color_viridis_d(option = vir_pal, direction = 1) +
-    scale_fill_viridis_d(option = vir_pal, direction = 1) +
-    labs(x = "State", y = "Difference", title = paste0(year, " Election: Absolute difference between Market Price and Economist Projection by State"))
+    scale_color_viridis_d(option = vir_pal, direction = 1, begin = 0, end = 0.85) +
+    scale_fill_viridis_d(option = vir_pal, direction = 1, begin = 0, end = 0.85) +
+    labs(x = "State", y = "Closing Share Price - Economist Forecast", title = paste0(year, " Election: Absolute difference between Closing Market Price and Economist Projection by State")) +
+    scale_y_continuous(breaks = seq(-1, 1, by = 0.1))
   
   # MSE by state (bar chart) 
   mse_by_state <- df %>%
@@ -244,8 +264,11 @@ final_plot <- p_top12 / p_rest +
   
   if(year == "2020"){
   print(final_plot)}
+  
+  return(list(p_bar, box_plot))
 
 }
+
 ```
 
 ## Comparing State by State
@@ -276,7 +299,9 @@ df_comp_2020 <- mkt_2020_comp %>%
   mutate(diff = CloseSharePrice - win_prob,
          sq = diff^2)
 
-comp_plots(df_comp_2020, year = "2020")
+plots_2020 <- comp_plots(df_comp_2020, year = "2020")
+
+
 
 ```
 
@@ -287,7 +312,7 @@ comp_plots(df_comp_2020, year = "2020")
 
 ```{r}
 
-mkt_2016 <- read_xlsx("OneDrive - Nexus365/Market_Data/Price History By Market 2016.xlsx") %>% 
+mkt_2016 <- read_xlsx("/Users/ebbamark/OneDrive - Nexus365/Market_Data/Price History By Market 2016.xlsx") %>% 
   mutate(state = gsub("the ", "", gsub(" in the 2016 presidential election?", "", gsub("Which party will win ", "", MarketName), fixed = TRUE)))
 
 stopifnot(mkt_2016 %>% group_by(state, HistoryDateET, ContractName) %>% n_groups(.) == nrow(mkt_2016))
@@ -327,14 +352,13 @@ mkt_2016 %>%
   no_state_legend +
         scale_color_viridis_d(option = "C", direction = 1)
 
-
 ```
 
 ## Economist Data
 
 ```{r}
 
-econ_2016 <- read_xlsx("OneDrive - Nexus365/Economist_Data/loop_summaries_2016.xlsx")
+econ_2016 <- read_xlsx("/Users/ebbamark/OneDrive - Nexus365/Economist_Data/loop_summaries_2016.xlsx")
 
 stopifnot(econ_2016 %>% group_by(state, model_run_date) %>% n_groups(.) == nrow(econ_2016))
 
@@ -349,8 +373,6 @@ econ_2016 %>%
   no_state_legend +
         scale_color_viridis_d(option = "C", direction = 1) +
           scale_fill_viridis_d(option = "C", direction = 1)
-
-
 
 
 ```
@@ -389,7 +411,72 @@ df_comp_2016 <- mkt_2016_comp %>%
   mutate(diff = CloseSharePrice - win_prob,
          sq = diff^2)
 
-comp_plots(df_comp_2016, year = "2016", vir_pal = "C")
+plots_2016 <- comp_plots(df_comp_2016, vir_pal = "C", year = "2016")
+
+plots_2016[[2]] / plots_2020[[2]]
+
+ggsave(here("data/absolute_difference.png"), height = 10, width = 13)
+
 
 ```
+
+```{r}
+
+
+# MSE by state (bar chart) 
+mse_by_state_2016 <- df_comp_2016 %>%
+    group_by(state) %>%
+    summarise(
+      n_obs = sum(!is.na(sq)),
+      mse = mean(sq, na.rm = TRUE),
+      rmse = sqrt(mse)
+    ) %>%
+    ungroup() %>%
+    arrange(desc(mse)) %>% 
+  mutate(year = 2016)
+
+mse_by_state_2020 <- df_comp_2020 %>% 
+    group_by(state) %>%
+    summarise(
+      n_obs = sum(!is.na(sq)),
+      mse = mean(sq, na.rm = TRUE),
+      rmse = sqrt(mse)
+    ) %>%
+    ungroup() %>%
+    arrange(desc(mse)) %>% 
+  mutate(year = 2020)
+
+mse_by_state_2020$state <- state.abb[match(mse_by_state_2020$state, state.name)]
+
+
+mse_by_state_2016 %>% 
+  full_join(., mse_by_state_2020, by = c("state"), suffix = c("_2016", "_2020")) %>% 
+  mutate(state = reorder(state, rmse_2016, FUN = max)) %>%
+    ggplot(aes(x = state)) +
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.00, ymax = 0.1, fill = "mediumseagreen", alpha = 0.2) +
+  #annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.05, ymax = 0.1, fill = "mediumseagreen", alpha = 0.2) +
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.10, ymax = 0.2, fill = "mediumseagreen", alpha = 0.1) +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.2, ymax = 0.3, fill = "mediumseagreen", alpha = 0.05) +
+      #annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.3, ymax = 0.4, fill = "mediumseagreen", alpha = 0) +
+
+    geom_point(aes(y = rmse_2016, color = "2016")) +
+    geom_point(aes(y = rmse_2020, color = "2020")) + 
+    geom_ribbon(aes(x = state, ymin = 0, ymax=0.1), fill = "grey70") +
+    labs(
+      title = "Gap between Prediction Market Price and Economist Forecast of State Presidential Election Returns",
+      subtitle = "Statistic: Root Mean Squared Error by State in 2016 (May 10 - Nov. 8) and 2020 (Mar. 1 - Nov. 3)",
+      x = "State",
+      y = "RMSE"
+    ) +
+  #coord_flip() +
+    plot_theme +
+    theme(legend.position = "bottom") +
+  scale_color_viridis_d(option = "viridis", begin = 0.6, end = 0.2) 
+
+
+ggsave(here("data/market_price_model_divergence.png"), height = 9, width = 12)
+
+
+```
+
 
