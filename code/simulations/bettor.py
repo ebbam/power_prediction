@@ -66,10 +66,14 @@ class bettor:
 
         If an agent has a propensity to imitate the market (market_imitation is -1 or 1), we will also add a factor of the change in market price over the most recent $k$ steps.
         '''
-        if (self.market_imitation != 0) and (len(price_history)>k):
-            self.market_valuation += 2*self.market_imitation * (mkt_price - price_history[-(k)])
+        # if (self.market_imitation != 0) and (len(price_history)>k):
+        #     self.market_valuation += 2*self.market_imitation * (mkt_price - price_history[-(k)])
         if not self.whale:
             self.market_valuation += (1-self.stubbornness)*(np.random.normal(true_value, self.expertise) - self.bias - self.market_valuation)
+
+            if self.market_imitation > 0:
+                self.market_valuation = (1-self.market_imitation)*self.market_valuation + self.market_imitation*mkt_price
+
             # ensure value is within range [0,1]
             self.market_valuation = np.clip(self.market_valuation, 0, 1)
 
@@ -178,14 +182,14 @@ def gen_election(init_price, t_el, sd):
     return el
 
 
-def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettors, k=1, market_lambda=1/10):
+def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettors, k=1, market_lambda=1/10, market_error=0):
 
     # Create true election probability
     gen_el = gen_election(initial_price, t_election, outcome_uncertainty)
     # Initialise betting population
     #bettors = [bettor() for _ in range(n_bettors)]
     # Set market price
-    mkt_price = initial_price
+    mkt_price = initial_price + market_error
 
     # Varioues records to store market price, volume on the market, average bettor beliefs, and net supply
     price_history = [mkt_price]
@@ -198,7 +202,6 @@ def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettor
     fulfilled_orders_sums = []
 
     for t in range(t_election):
-
         order_book = [] # Initialise order book for time step t
         for b in bettors:
             order_book.append(b.trade(mkt_price)) # add bettor's order volume to the order_book, positive for a buy order and negative for a sell order
@@ -234,13 +237,14 @@ def run_market(n_bettors, t_election, initial_price, outcome_uncertainty, bettor
         market_pressure.append(net_supply_demand/order_volume if order_volume != 0 else 0) # Record market pressure
         assert(abs(net_supply_demand) <= order_volume)
 
+        # Update beliefs feeding in the true probability of the election outcome at time t
+        for b in bettors:
+            b.update_belief(gen_el[t], mkt_price, price_history, k=k) 
 
         """ Q: The market price updating is not working...See last chunk/plot for demonstration of the problem: price converges to one or zero."""
         mkt_price = set_market_price(mkt_price, net_supply_demand, order_volume, market_lambda=market_lambda) #Update market price
 
-        # Update beliefs feeding in the true probability of the election outcome at time t
-        for b in bettors:
-            b.update_belief(gen_el[t], mkt_price, price_history, k=k) 
+
 
         # Update records
         beliefs.append(np.mean([k.market_valuation for k in bettors]))
