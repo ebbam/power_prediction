@@ -2,6 +2,7 @@
 
 *Authors: Ebba Mark, Bridget Smart, Anne Bastian, Josefina Waugh*
 
+This code is associated with the preprint available [here](https://arxiv.org/abs/2601.20452).
 
 This repository contains two project folders (Note: files described below are not an exhaustive list of the repository content):
 
